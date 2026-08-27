@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from dash import Dash, Input, Output, State, dash_table, dcc, html
+from dash import Dash, Input, Output, State, dash_table, dcc, html, no_update
 
 from ..domain.aliases import AliasTable
 from ..engines.forecast_engine import (ANCILLARY_SCENARIOS, StorageConfig,
@@ -69,6 +69,40 @@ def _stat(label: str, value: str, note: str, theme: dict, status: str | None = N
         html.Div(note, style={"fontSize": "11.5px", "color": theme["text_secondary"]}),
     ], style={"padding": "14px 16px", "background": theme["surface_2"],
               "borderRadius": "10px", "flex": "1 1 190px", "minWidth": "180px"})
+
+
+def _storage_control_state(mode: str, volume_hm3, net_head_m,
+                           turbine_efficiency) -> dict:
+    """Devuelve un estado coherente para las dos formas de almacenamiento."""
+    if mode == "reservoir":
+        calculated_mwh = None
+        try:
+            storage = storage_from_inputs(
+                volume_hm3=float(volume_hm3),
+                net_head_m=float(net_head_m),
+                turbine_efficiency=float(turbine_efficiency),
+            )
+            calculated_mwh = round(storage["usable_output_mwh"], 2)
+        except (TypeError, ValueError):
+            pass
+        return {
+            "mwh_disabled": True,
+            "volume_disabled": False,
+            "head_disabled": False,
+            "calculated_mwh": calculated_mwh,
+            "mwh_label": "Capacidad útil calculada (MWh)",
+            "help": ("Introduce el volumen útil y el salto neto. La capacidad eléctrica útil "
+                     "se calcula automáticamente aplicando la eficiencia de turbinado."),
+        }
+    return {
+        "mwh_disabled": False,
+        "volume_disabled": True,
+        "head_disabled": True,
+        "calculated_mwh": None,
+        "mwh_label": "Capacidad útil (MWh)",
+        "help": ("Introduce directamente los MWh eléctricos útiles. El volumen de la balsa "
+                 "y el salto neto quedan desactivados."),
+    }
 
 
 def add_group(detail: pd.DataFrame) -> pd.DataFrame:
@@ -245,6 +279,8 @@ def build_app(root: Path, assets_path: Path) -> Dash:
     asset_options = [{"label": a, "value": a} for a in sorted(assets["asset"])]
     date_min = detail["datetime"].min() if not detail.empty else pd.Timestamp("2023-01-01")
     date_max = detail["datetime"].max() if not detail.empty else pd.Timestamp("2023-01-31")
+    calendar_min = min(pd.Timestamp(date_min).normalize(), pd.Timestamp("2000-01-01"))
+    calendar_max = max(pd.Timestamp(date_max).normalize(), pd.Timestamp.today().normalize())
 
     filters = html.Div([
         html.Div([html.Label("Centrales", style={"fontSize": "11px", "color": theme["text_muted"]}),
@@ -252,18 +288,22 @@ def build_app(root: Path, assets_path: Path) -> Dash:
                                value=[a["value"] for a in asset_options], multi=True)],
                  style={"flex": "3 1 320px"}),
         html.Div([html.Label("Desde", style={"fontSize": "11px", "color": theme["text_muted"]}),
-                  dcc.DatePickerSingle(id="f-start", date=date_min, min_date_allowed=date_min,
-                                       max_date_allowed=date_max, display_format="DD/MM/YYYY")],
+                  dcc.DatePickerSingle(id="f-start", date=date_min,
+                                       min_date_allowed=calendar_min,
+                                       max_date_allowed=calendar_max,
+                                       display_format="DD/MM/YYYY")],
                  style={"flex": "1 1 160px", "minWidth": "160px"}),
         html.Div([html.Label("Hasta", style={"fontSize": "11px", "color": theme["text_muted"]}),
-                  dcc.DatePickerSingle(id="f-end", date=date_max, min_date_allowed=date_min,
-                                       max_date_allowed=date_max, display_format="DD/MM/YYYY")],
+                  dcc.DatePickerSingle(id="f-end", date=date_max,
+                                       min_date_allowed=calendar_min,
+                                       max_date_allowed=calendar_max,
+                                       display_format="DD/MM/YYYY")],
                  style={"flex": "1 1 160px", "minWidth": "160px"}),
         html.Div([html.Label("Metrica", style={"fontSize": "11px", "color": theme["text_muted"]}),
                   dcc.Dropdown(id="f-metric", clearable=False, value="EUR",
                                options=[{"label": "Euros", "value": "EUR"},
                                         {"label": "EUR/MW", "value": "EUR_MW"},
-                                        {"label": "EUR/MW-anio", "value": "EUR_MW_YEAR"}])],
+                                        {"label": "EUR/MW-año", "value": "EUR_MW_YEAR"}])],
                  style={"flex": "1 1 190px"}),
     ], style={"display": "flex", "gap": "14px", "alignItems": "flex-end",
               "padding": "12px 18px", "background": theme["surface_2"],
@@ -327,7 +367,7 @@ def build_app(root: Path, assets_path: Path) -> Dash:
     def render(tab, sel_assets, start, end, metric):
         d = _filtered(sel_assets, start, end)
         ds = _scale(d, metric)
-        unit = {"EUR": "EUR", "EUR_MW": "EUR/MW", "EUR_MW_YEAR": "EUR/MW-anio"}[metric]
+        unit = {"EUR": "EUR", "EUR_MW": "EUR/MW", "EUR_MW_YEAR": "EUR/MW-año"}[metric]
 
         if d.empty:
             return html.Div([
@@ -450,20 +490,22 @@ def build_app(root: Path, assets_path: Path) -> Dash:
                                            options=[{"label": "MWh eléctricos útiles", "value": "mwh"},
                                                     {"label": "Balsa y salto", "value": "reservoir"}])],
                              style={"flex": "1 1 210px"}),
-                    html.Div([html.Label("Capacidad útil (MWh)"),
+                    html.Div([html.Label("Capacidad útil (MWh)", id="fc-e-label"),
                               dcc.Input(id="fc-e", type="number", value=4000, min=1,
                                         style={"width": "100%"})], style={"flex": "1 1 170px"}),
                     html.Div([html.Label("Volumen útil (hm³)"),
                               dcc.Input(id="fc-volume", type="number", value=5, min=0.001,
-                                        style={"width": "100%"})], style={"flex": "1 1 160px"}),
+                                        disabled=True, style={"width": "100%"})],
+                             style={"flex": "1 1 160px"}),
                     html.Div([html.Label("Salto neto (m)"),
                               dcc.Input(id="fc-head", type="number", value=350, min=1,
-                                        style={"width": "100%"})], style={"flex": "1 1 150px"}),
+                                        disabled=True, style={"width": "100%"})],
+                             style={"flex": "1 1 150px"}),
                 ], style={"display": "flex", "gap": "12px", "alignItems": "flex-end",
                           "flexWrap": "wrap", "padding": "14px", "background": theme["surface_2"],
                           "borderRadius": "10px", "marginBottom": "12px"}),
-                html.Div("Se utilizará la capacidad MWh o la pareja volumen–salto según la opción elegida; "
-                         "los otros campos se ignoran.",
+                html.Div("Introduce directamente los MWh eléctricos útiles. El volumen de la balsa "
+                         "y el salto neto quedan desactivados.", id="fc-storage-help",
                          style={"fontSize": "11.5px", "color": theme["text_muted"],
                                 "margin": "-4px 2px 12px"}),
                 html.Details([
@@ -566,6 +608,22 @@ def build_app(root: Path, assets_path: Path) -> Dash:
                           _table(sign)]
             return html.Div(items)
         return html.Div()
+
+    @app.callback(Output("fc-e", "disabled"),
+                  Output("fc-volume", "disabled"),
+                  Output("fc-head", "disabled"),
+                  Output("fc-e", "value"),
+                  Output("fc-e-label", "children"),
+                  Output("fc-storage-help", "children"),
+                  Input("fc-energy-mode", "value"),
+                  Input("fc-volume", "value"),
+                  Input("fc-head", "value"),
+                  Input("fc-eff-t", "value"))
+    def toggle_storage_inputs(mode, volume, head, eff_t):
+        state = _storage_control_state(mode, volume, head, eff_t)
+        mwh_value = state["calculated_mwh"] if mode == "reservoir" else no_update
+        return (state["mwh_disabled"], state["volume_disabled"],
+                state["head_disabled"], mwh_value, state["mwh_label"], state["help"])
 
     @app.callback(Output("fc-output", "children"),
                   Input("fc-run", "n_clicks"),

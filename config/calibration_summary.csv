@@ -1,0 +1,12 @@
+Prueba,Periodo,Referencia,Modelo,Desviacion,Estado
+Aguayo ENERGY total,2023-01,"4.930.968 € implícitos / ~5,0 M€","4.849.834 €","-1,65% / -3,00%",SUPERADA
+Aguayo €/MW,2023-01,"~14.100 €/MW","13.457 €/MW","-4,6%",SUPERADA
+Secundaria sistema,2023-01,"680/681×10389/10390 = 718-719","+7.270.203 € = +7.270.203 €","0,0 €",SUPERADA
+RRTT pre-apagón,2024-05_2025-04,"~0,32 M€/mes","0,299 M€/mes","-6,7%",SUPERADA
+RRTT post-apagón,2025-05_2026-04,"~1,07 M€/mes","1,086 M€/mes","+1,5%",SUPERADA
+aFRR histórica concentración,2023-01_2024-11,"Aguayo+La Muela ~73%; Moralets 0","73,5%; Moralets 0","compatible",SUPERADA
+mFRR moderno,2026-04-27_2026-04-28,"425.254 € AP+AD","425.254 €","-0,14 €",SUPERADA
+SSAA abril 2025,2025-04,"8 celdas Optimize; TTCC dw share ~69%","8/8 exactas; 69,430%","0",SUPERADA
+SSAA mayo 2025,2025-05,"8 celdas Optimize; TTCC dw share ~79%","8/8 exactas; 79,546%","0",SUPERADA
+TTCC apagón,2025-04-28,"Hueco Optimize 1.860,00 MWh","PDBF→PDVP 1.860,00 MWh","0,00 MWh",SUPERADA
+Benchmark +117%,2025-04_2025-05,"Fórmula/ventana no publicadas","No usado para calibrar","n/a",NO_BLOQUEANTE

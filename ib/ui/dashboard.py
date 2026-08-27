@@ -27,6 +27,8 @@ from ..qa import quality_flags as qf
 from ..repositories.processed_store import ProcessedStore
 from .theme import DARK, GROUP_ORDER, LIGHT, MARKET_GROUPS, group_color, layout
 
+LINKEDIN_PROFILE_URL = "https://www.linkedin.com/in/antonio-rueda-caballero-21665323b/"
+
 TABLE_STYLE = dict(
     style_table={"overflowX": "auto", "maxHeight": "360px", "overflowY": "auto"},
     style_cell={"fontFamily": "Inter, Segoe UI, system-ui, sans-serif", "fontSize": "12px",
@@ -311,16 +313,39 @@ def build_app(root: Path, assets_path: Path) -> Dash:
 
     app.layout = html.Div([
         html.Div([
-            html.H1("INGRESOS BOMBEOS", style={"fontSize": "19px", "margin": 0,
-                                               "letterSpacing": ".01em"}),
-            html.Div("Ingresos observados de bombeos españoles y simulación técnico-económica "
-                     "de futuros proyectos con datos públicos de OMIE y REE / e·sios",
-                     style={"fontSize": "12.5px", "color": theme["text_secondary"],
-                            "marginTop": "3px"}),
-            html.Div(f"Datos cargados: {pd.Timestamp(date_min):%d/%m/%Y} – {pd.Timestamp(date_max):%d/%m/%Y}",
-                     style={"fontSize": "11px", "color": theme["text_muted"],
-                            "marginTop": "5px"}),
-        ], style={"padding": "16px 18px 10px"}),
+            html.Div([
+                html.H1("INGRESOS BOMBEOS", style={"fontSize": "19px", "margin": 0,
+                                                   "letterSpacing": ".01em"}),
+                html.Div("Ingresos observados de bombeos españoles y simulación técnico-económica "
+                         "de futuros proyectos con datos públicos de OMIE y REE / e·sios",
+                         style={"fontSize": "12.5px", "color": theme["text_secondary"],
+                                "marginTop": "3px"}),
+                html.Div(f"Datos cargados: {pd.Timestamp(date_min):%d/%m/%Y} – {pd.Timestamp(date_max):%d/%m/%Y}",
+                         style={"fontSize": "11px", "color": theme["text_muted"],
+                                "marginTop": "5px"}),
+            ], style={"flex": "1 1 520px"}),
+            html.Div([
+                html.Span("POWERED BY:", style={"fontSize": "10px", "fontWeight": 700,
+                                                "letterSpacing": ".08em",
+                                                "color": theme["text_muted"]}),
+                html.A([
+                    html.Span("in", style={"fontSize": "13px", "fontWeight": 800,
+                                           "lineHeight": "1"}),
+                    html.Span("Antonio Rueda Caballero", style={"fontSize": "12px",
+                                                                 "fontWeight": 650}),
+                    html.Span("↗", **{"aria-hidden": "true"}),
+                ], id="linkedin-profile-link", href=LINKEDIN_PROFILE_URL,
+                   target="_blank", rel="noopener noreferrer",
+                   title="Abrir el perfil de Antonio Rueda Caballero en LinkedIn",
+                   style={"display": "inline-flex", "alignItems": "center", "gap": "7px",
+                          "padding": "8px 11px", "borderRadius": "8px",
+                          "background": "#0A66C2", "color": "#FFFFFF",
+                          "textDecoration": "none", "boxShadow": "0 1px 2px rgba(0,0,0,.12)"}),
+            ], style={"display": "flex", "alignItems": "center", "gap": "9px",
+                      "flexWrap": "wrap", "justifyContent": "flex-end"}),
+        ], style={"padding": "16px 18px 10px", "display": "flex", "gap": "18px",
+                  "alignItems": "center", "justifyContent": "space-between",
+                  "flexWrap": "wrap"}),
         filters,
         dcc.Tabs(id="tabs", value="resumen", children=[
             dcc.Tab(label="Resumen", value="resumen"),

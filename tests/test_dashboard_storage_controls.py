@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from ib.ui.dashboard import _storage_control_state, build_app
+from ib.ui.dashboard import LINKEDIN_PROFILE_URL, _storage_control_state, build_app
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -55,3 +55,11 @@ def test_etiqueta_anual_usa_la_notacion_solicitada():
     metric = _component(app.layout, "f-metric")
     labels = {option["label"] for option in metric.options}
     assert "EUR/MW-año" in labels
+
+
+def test_powered_by_enlaza_al_perfil_de_linkedin():
+    app = build_app(ROOT / "data", ROOT / "config" / "assets.csv")
+    link = _component(app.layout, "linkedin-profile-link")
+    assert link.href == LINKEDIN_PROFILE_URL
+    assert link.target == "_blank"
+    assert link.rel == "noopener noreferrer"

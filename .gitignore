@@ -4,6 +4,15 @@ __pycache__/
 .env.*
 !.env.example
 data/raw/i90/
+data/raw/omie/marginalpibc/
+data/raw/omie/*.zip
+data/raw/omie/marginalpdbc/*
+!data/raw/omie/marginalpdbc/202301*.1
+data/normalized/
+data/demo_parts/
+data/analytics/revenue_detail.csv
+data/analytics/system_secondary_net.csv
+data/analytics/system_secondary_net.parquet
 .venv/
 .deps/
 .pip-tmp/

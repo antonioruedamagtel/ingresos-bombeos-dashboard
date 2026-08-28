@@ -7,6 +7,18 @@ Dashboard local y auditable para reconstruir los ingresos de centrales de
 bombeo españolas y explorar proyectos futuros mediante escenarios técnicos y
 económicos. El repositorio **no contiene tokens ni credenciales**.
 
+## Demo pública sin instalación
+
+Abre la **[demo interactiva en GitHub Pages](https://antonioruedamagtel.github.io/ingresos-bombeos-dashboard/)**.
+Incluye un snapshot agregado de las ocho centrales entre enero de 2023 y abril
+de 2026, además de un simulador de potencia, almacenamiento, eficiencias y
+costes que se ejecuta íntegramente en el navegador. No requiere token ni envía
+datos a un servidor.
+
+La demo es educativa: los históricos siguen la metodología del repositorio y
+los escenarios futuros son orientativos, no una oferta de mercado ni una
+previsión financiera garantizada.
+
 Herramienta de reconstrucción del *revenue stack* de centrales hidroeléctricas
 reversibles españolas a partir exclusivamente de datos públicos de OMIE y de
 REE / e·sios, con trazabilidad de cada euro hasta su fichero, su volumen, su
@@ -24,10 +36,10 @@ por *backtest* sintético sobre precios históricos reales y por escenarios.
    terminar se abre `http://127.0.0.1:8050/`.
 4. Mantén abierta la ventana de terminal mientras uses el dashboard.
 
-El paquete ya contiene una muestra reproducible del 1 al 31 de enero de 2023,
-con ocho activos disponibles y siete en el universo calibrado por defecto. Esto
-permite explorar el histórico y probar el simulador nada más abrirlo. Para una
-decisión real conviene actualizar y usar, como mínimo, doce meses completos.
+El paquete conserva una muestra local reproducible de enero de 2023. La demo
+web añade un extracto agregado hasta abril de 2026 para explorar el histórico
+y probar el simulador sin instalar Python. Para una decisión real deben
+revisarse las puertas de calidad y las hipótesis del proyecto concreto.
 
 ## Contenido
 
@@ -89,6 +101,13 @@ python cli.py ingest --start 2023-01-01 --end 2023-01-31
 python cli.py build  --start 2023-01-01 --end 2023-01-31
 python cli.py qa     --start 2023-01-01 --end 2023-01-31
 python run_dashboard.py
+```
+
+Para periodos largos puede utilizarse la ingesta mensual reanudable, que pide
+un paquete por mes y mantiene la misma caché diaria validada:
+
+```bat
+python scripts/ingest_i90_monthly.py --start 2023-01-01 --end 2026-04-30
 ```
 
 El cuadro de mando queda en `http://127.0.0.1:8050/`.

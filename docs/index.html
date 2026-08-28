@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Demo pública de análisis de ingresos y escenarios económicos para ocho centrales de bombeo españolas.">
+  <title>INGRESOS BOMBEOS · Demo pública</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="vendor/plotly.min.js"></script>
+  <script defer src="data/demo-data.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Saltar al contenido</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#resumen" aria-label="Inicio de INGRESOS BOMBEOS">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 48 48"><path d="M9 31c5-9 10-13 15-13s10 4 15 13"/><path d="M9 35h30M17 18l7-8 7 8M24 10v25"/></svg>
+        </span>
+        <span><strong>INGRESOS BOMBEOS</strong><small>Inteligencia de mercado para almacenamiento hidráulico</small></span>
+      </a>
+      <div class="header-actions">
+        <span class="demo-badge">DEMO PÚBLICA</span>
+        <a class="powered-link" href="https://www.linkedin.com/in/antonio-rueda-caballero-21665323b/" target="_blank" rel="noopener noreferrer">
+          <span>POWERED BY:</span> Antonio Rueda <span aria-hidden="true">↗</span>
+        </a>
+        <a class="icon-link" href="https://github.com/antonioruedamagtel/ingresos-bombeos-dashboard" target="_blank" rel="noopener noreferrer" aria-label="Ver código en GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .8a11.4 11.4 0 0 0-3.6 22.2c.6.1.8-.2.8-.6v-2.2c-3.4.7-4.1-1.4-4.1-1.4-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3 0 0 1-.3 3.1 1.2A10.6 10.6 0 0 1 12 6.8c1 0 1.9.1 2.8.4 2.2-1.5 3.2-1.2 3.2-1.2.6 1.5.2 2.7.1 3 .8.8 1.2 1.8 1.2 3.1 0 4.4-2.8 5.4-5.5 5.7.4.4.8 1.1.8 2.1v2.5c0 .4.2.7.8.6A11.4 11.4 0 0 0 12 .8Z"/></svg>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">MERCADO ELÉCTRICO · ESPAÑA</p>
+        <h1>¿Dónde se genera el valor<br>de una central de bombeo?</h1>
+        <p>Explora ingresos observados, energía y precios capturados de ocho activos. Después prueba escenarios propios de potencia, almacenamiento y eficiencia.</p>
+      </div>
+      <div class="hero-card" aria-label="Cobertura de la demo">
+        <span class="pulse-dot"></span>
+        <div><small id="hero-quality">SNAPSHOT HISTÓRICO</small><strong id="hero-period">Cargando datos…</strong></div>
+        <div class="source-chips"><span>OMIE</span><span>REE · e·sios</span></div>
+      </div>
+    </section>
+
+    <section class="disclaimer" role="note">
+      <span aria-hidden="true">ⓘ</span>
+      <p><strong>Demo educativa con datos precargados.</strong> Los resultados históricos reproducen la metodología del proyecto; las previsiones son orientativas, no ingresos observados ni una oferta de mercado.</p>
+    </section>
+
+    <section class="controls" aria-label="Filtros del dashboard">
+      <label>Central
+        <select id="asset-filter"><option value="ALL">Todas las centrales</option></select>
+      </label>
+      <label>Desde
+        <select id="start-filter"></select>
+      </label>
+      <label>Hasta
+        <select id="end-filter"></select>
+      </label>
+      <label>Métrica
+        <select id="metric-filter">
+          <option value="EUR">EUR</option>
+          <option value="EUR_MW">EUR/MW</option>
+          <option value="EUR_MW_YEAR">EUR/MW-año</option>
+        </select>
+      </label>
+      <button id="reset-filters" class="secondary-button" type="button">Restablecer</button>
+    </section>
+
+    <nav class="tabs" aria-label="Secciones del dashboard">
+      <button class="tab is-active" data-tab="resumen" type="button">Resumen</button>
+      <button class="tab" data-tab="centrales" type="button">Centrales</button>
+      <button class="tab" data-tab="energia" type="button">Energía</button>
+      <button class="tab" data-tab="mercados" type="button">Mercados</button>
+      <button class="tab forecast-tab" data-tab="prevision" type="button">Previsión <span>NUEVO</span></button>
+      <button class="tab" data-tab="calidad" type="button">Calidad</button>
+    </nav>
+
+    <section id="resumen" class="tab-panel is-active">
+      <div class="section-heading"><div><p class="eyebrow">VISIÓN ECONÓMICA</p><h2>Resumen del periodo</h2></div><p id="selection-label"></p></div>
+      <div id="summary-kpis" class="kpi-grid"></div>
+      <div class="chart-grid chart-grid-wide">
+        <article class="panel panel-wide"><div class="panel-heading"><div><h3>Evolución mensual</h3><p>Ingreso incremental según la métrica seleccionada</p></div></div><div id="trend-chart" class="chart"></div></article>
+        <article class="panel"><div class="panel-heading"><div><h3>Mix de ingresos</h3><p>Contribución por familia de mercado</p></div></div><div id="market-mix-chart" class="chart"></div></article>
+        <article class="panel"><div class="panel-heading"><div><h3>Valor por central</h3><p>Comparativa del periodo filtrado</p></div></div><div id="asset-chart" class="chart"></div></article>
+      </div>
+      <article class="panel table-panel"><div class="panel-heading"><div><h3>Detalle de centrales</h3><p>Potencia, ingreso, precio capturado y calidad</p></div><button id="download-csv" class="text-button" type="button">Descargar CSV ↓</button></div><div class="table-wrap"><table><thead><tr><th>Central</th><th>Operador</th><th class="num">MW</th><th class="num">Ingreso</th><th class="num">Gen. P48</th><th class="num">Bombeo P48</th><th class="num">€/MWh capt.</th><th class="num">Observado</th></tr></thead><tbody id="asset-table"></tbody></table></div></article>
+    </section>
+
+    <section id="centrales" class="tab-panel">
+      <div class="section-heading"><div><p class="eyebrow">BENCHMARK DE ACTIVOS</p><h2>Las ocho centrales</h2></div><p>Comparación homogénea con el mismo criterio de cálculo.</p></div>
+      <div id="plant-cards" class="plant-grid"></div>
+      <div class="chart-grid">
+        <article class="panel"><div class="panel-heading"><div><h3>Precio capturado en generación</h3><p>Ingresos de energía / MWh P48</p></div></div><div id="captured-generation-chart" class="chart"></div></article>
+        <article class="panel"><div class="panel-heading"><div><h3>Precio capturado en bombeo</h3><p>Coste neto de energía / MWh P48</p></div></div><div id="captured-pumping-chart" class="chart"></div></article>
+      </div>
+    </section>
+
+    <section id="energia" class="tab-panel">
+      <div class="section-heading"><div><p class="eyebrow">OPERACIÓN FÍSICA</p><h2>Energía de generación y bombeo</h2></div><p>Volumen P48 del mercado diario.</p></div>
+      <div id="energy-kpis" class="kpi-grid kpi-grid-three"></div>
+      <article class="panel"><div class="panel-heading"><div><h3>Balance mensual</h3><p>Generación positiva y bombeo representado en valor absoluto</p></div></div><div id="energy-chart" class="chart chart-tall"></div></article>
+    </section>
+
+    <section id="mercados" class="tab-panel">
+      <div class="section-heading"><div><p class="eyebrow">FUENTES DE VALOR</p><h2>Mercados eléctricos</h2></div><p>Descomposición incremental sin doble contabilización.</p></div>
+      <div class="chart-grid">
+        <article class="panel"><div class="panel-heading"><div><h3>Ingresos por familia</h3><p>Total del periodo seleccionado</p></div></div><div id="markets-chart" class="chart chart-tall"></div></article>
+        <article class="panel"><div class="panel-heading"><div><h3>Precio del mercado diario</h3><p>Distribución horaria del snapshot</p></div></div><div id="price-chart" class="chart chart-tall"></div></article>
+      </div>
+      <article class="panel explainer"><h3>Cómo leer los componentes</h3><div id="market-legend" class="legend-grid"></div></article>
+    </section>
+
+    <section id="prevision" class="tab-panel">
+      <div class="section-heading"><div><p class="eyebrow">LABORATORIO DE ESCENARIOS</p><h2>Previsión económica orientativa</h2></div><p>Despacho simplificado sobre los precios horarios precargados.</p></div>
+      <div class="forecast-layout">
+        <form id="forecast-form" class="panel forecast-form">
+          <div class="panel-heading"><div><h3>Configura la central</h3><p>Todos los campos se calculan en el navegador.</p></div></div>
+          <div class="form-grid">
+            <label>Potencia turbinación (MW)<input id="p-turbine" type="number" min="1" step="1" value="500"></label>
+            <label>Potencia bombeo (MW)<input id="p-pump" type="number" min="1" step="1" value="500"></label>
+            <label class="form-span">Definir almacenamiento por
+              <select id="storage-mode"><option value="mwh">MWh eléctricos útiles</option><option value="reservoir">Balsa y salto</option></select>
+            </label>
+            <div id="mwh-fields" class="form-subgrid form-span"><label>Capacidad útil (MWh)<input id="useful-mwh" type="number" min="1" step="10" value="4000"></label></div>
+            <div id="reservoir-fields" class="form-subgrid form-span is-disabled" aria-disabled="true">
+              <label>Volumen útil (hm³)<input id="volume-hm3" type="number" min="0.01" step="0.1" value="5" disabled></label>
+              <label>Salto neto (m)<input id="head-m" type="number" min="1" step="1" value="350" disabled></label>
+            </div>
+            <label>Eficiencia turbina (%)<input id="eff-t" type="number" min="1" max="100" step="1" value="90"></label>
+            <label>Eficiencia bomba (%)<input id="eff-p" type="number" min="1" max="100" step="1" value="87"></label>
+            <label>Disponibilidad (%)<input id="availability" type="number" min="1" max="100" step="1" value="95"></label>
+            <label>Ciclos equivalentes/año<input id="cycles" type="number" min="1" max="365" step="1" value="220"></label>
+            <label>OPEX variable (€/MWh)<input id="variable-opex" type="number" min="0" step="0.1" value="2.5"></label>
+            <label>OPEX fijo (EUR/MW-año)<input id="fixed-opex" type="number" min="0" step="100" value="12000"></label>
+            <label class="form-span">Captura adicional por SSAA (%)<input id="ancillary" type="number" min="0" max="200" step="1" value="12"></label>
+          </div>
+          <button class="primary-button" type="submit">Calcular escenarios</button>
+        </form>
+        <div class="forecast-results">
+          <div class="forecast-note"><span>Modelo transparente</span> Selecciona las horas más baratas para bombear y las más caras disponibles para turbinar, limitado por potencia, almacenamiento y eficiencias.</div>
+          <div id="forecast-kpis" class="kpi-grid kpi-grid-two"></div>
+          <article class="panel"><div class="panel-heading"><div><h3>Resultado anual por escenario</h3><p>Low −20 %, Base y High +20 % sobre precios históricos</p></div></div><div id="forecast-chart" class="chart"></div></article>
+          <article class="panel assumption-panel"><h3>Hipótesis calculadas</h3><div id="forecast-assumptions"></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="calidad" class="tab-panel">
+      <div class="section-heading"><div><p class="eyebrow">TRAZABILIDAD</p><h2>Calidad y cobertura</h2></div><p>Controles visibles para no confundir observación y estimación.</p></div>
+      <div id="quality-kpis" class="kpi-grid kpi-grid-three"></div>
+      <div class="chart-grid">
+        <article class="panel"><div class="panel-heading"><div><h3>Cobertura de precios</h3><p>Por componente de mercado</p></div></div><div id="coverage-chart" class="chart"></div></article>
+        <article class="panel table-panel"><div class="panel-heading"><div><h3>Cierre de volúmenes</h3><p>Residuo frente al volumen bruto por central y rol</p></div></div><div class="table-wrap"><table><thead><tr><th>Central</th><th>Rol</th><th class="num">P48 MWh</th><th class="num">Residuo MWh</th><th class="num">Residuo %</th><th>Estado</th></tr></thead><tbody id="quality-table"></tbody></table></div></article>
+      </div>
+      <article class="panel methodology"><h3>Fuentes y alcance</h3><p><strong>OMIE:</strong> precios y programas del mercado diario e intradiario. <strong>REE / e·sios:</strong> archivo I90 e indicadores del sistema. El repositorio público no contiene credenciales; el snapshot está agregado y se carga directamente desde GitHub Pages.</p><a href="https://github.com/antonioruedamagtel/ingresos-bombeos-dashboard#c%C3%B3mo-solicitar-el-token-de-esios" target="_blank" rel="noopener noreferrer">Ver metodología y cómo solicitar el token →</a></article>
+    </section>
+  </main>
+
+  <footer><p>INGRESOS BOMBEOS · Herramienta abierta para explorar, aprender y aportar.</p><p>Datos: OMIE y REE/e·sios · <a href="https://github.com/antonioruedamagtel/ingresos-bombeos-dashboard" target="_blank" rel="noopener noreferrer">Código y documentación</a></p></footer>
+  <div id="loading" class="loading"><span></span><p>Cargando snapshot…</p></div>
+  <div id="error-message" class="error-message" hidden></div>
+</body>
+</html>

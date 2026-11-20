@@ -70,7 +70,7 @@ input:disabled { color: #9ba7b4; background: #eef2f5; cursor: not-allowed; }
 .tab:hover { color: var(--blue); background: #f3f7fa; }
 .tab.is-active { color: white; background: var(--navy-2); }
 .forecast-tab span { margin-left: 4px; padding: 2px 5px; color: #087f7a; background: #dff8f6; border-radius: 999px; font-size: 7px; letter-spacing: .08em; }
-.tab.is-active.forecast-tab span { color: #dff8f6; background: rgba(100,217,213,.18); }
+.tab.is-active.forecast-tab span, .tab.is-active.operation-tab span { color: #dff8f6; background: rgba(100,217,213,.18); }
 
 .tab-panel { display: none; animation: reveal .25s ease; }
 .tab-panel.is-active { display: block; }
@@ -144,6 +144,13 @@ tr:last-child td { border-bottom: 0; }
 .methodology p { color: var(--muted); font-size: 12px; }
 .methodology a { color: var(--blue); font-size: 12px; font-weight: 700; text-decoration: none; }
 
+.operation-disclaimer { margin: 0 0 13px; padding: 12px 14px; color: #415669; background: #edf7fb; border: 1px solid #d2e8f3; border-radius: 10px; font-size: 11px; }
+.operation-disclaimer strong { color: var(--blue); }
+.operation-controls { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 12px; margin-bottom: 13px; }
+.operation-insight { margin-bottom: 13px; background: linear-gradient(110deg, #fff, #f3fbfa); }
+.operation-insight h3 { color: var(--teal-dark); }
+.operation-insight p { max-width: 1000px; margin: 8px 0 0; color: #52677a; font-size: 12px; }
+
 footer { min-height: 90px; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 22px max(20px, calc((100% - 1440px) / 2)); color: #a9bdce; background: var(--navy); font-size: 11px; }
 footer p { margin: 0; }
 footer a { color: #64d9d5; }
@@ -164,6 +171,7 @@ footer a { color: #64d9d5; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .plant-grid { grid-template-columns: repeat(2, 1fr); }
   .forecast-layout { grid-template-columns: 1fr; }
+  .operation-controls { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 720px) {
@@ -188,6 +196,7 @@ footer a { color: #64d9d5; }
   .form-subgrid { grid-template-columns: 1fr; }
   .form-subgrid > label:only-child { grid-column: auto; }
   .assumption-panel ul { grid-template-columns: 1fr; }
+  .operation-controls { grid-template-columns: 1fr; }
   footer { display: block; }
   footer p + p { margin-top: 7px; }
 }

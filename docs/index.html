@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="styles.css">
   <script defer src="vendor/plotly.min.js"></script>
   <script defer src="data/demo-data.js"></script>
+  <script defer src="data/operation-data.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
@@ -75,6 +76,7 @@
       <button class="tab is-active" data-tab="resumen" type="button">Resumen</button>
       <button class="tab" data-tab="centrales" type="button">Centrales</button>
       <button class="tab" data-tab="energia" type="button">Energía</button>
+      <button class="tab operation-tab" data-tab="operacion" type="button">Operación <span>NUEVO</span></button>
       <button class="tab" data-tab="mercados" type="button">Mercados</button>
       <button class="tab forecast-tab" data-tab="prevision" type="button">Previsión <span>NUEVO</span></button>
       <button class="tab" data-tab="calidad" type="button">Calidad</button>
@@ -104,6 +106,27 @@
       <div class="section-heading"><div><p class="eyebrow">OPERACIÓN FÍSICA</p><h2>Energía de generación y bombeo</h2></div><p>Volumen P48 del mercado diario.</p></div>
       <div id="energy-kpis" class="kpi-grid kpi-grid-three"></div>
       <article class="panel"><div class="panel-heading"><div><h3>Balance mensual</h3><p>Generación positiva y bombeo representado en valor absoluto</p></div></div><div id="energy-chart" class="chart chart-tall"></div></article>
+    </section>
+
+    <section id="operacion" class="tab-panel">
+      <div class="section-heading"><div><p class="eyebrow">RECONSTRUCCIÓN OPERATIVA</p><h2>Cómo opera cada central</h2></div><p>Programa físico P48 y anotaciones por unidad de REE/e·sios; no es telemetría SCADA.</p></div>
+      <div class="operation-disclaimer"><strong>Cómo interpretarlo:</strong> MW es potencia media programada en la hora. “Sin programa” no prueba una avería: puede ser espera, hidráulica, mantenimiento o decisión de mercado. Las etiquetas de mercado indican una anotación/servicio de la UP, no una liquidación independiente por hora.</div>
+      <div class="operation-controls panel">
+        <label>Central<select id="operation-asset"></select></label>
+        <label>Mes<select id="operation-month"></select></label>
+        <label>Día a inspeccionar<select id="operation-day"></select></label>
+      </div>
+      <div id="operation-kpis" class="kpi-grid"></div>
+      <article class="panel operation-insight"><h3>Lectura de la lógica operativa</h3><p id="operation-logic"></p></article>
+      <div class="chart-grid">
+        <article class="panel"><div class="panel-heading"><div><h3>Mapa horario del mes</h3><p>Turbinación, bombeo, operación mixta y horas sin programa P48</p></div></div><div id="operation-heatmap" class="chart chart-tall"></div></article>
+        <article class="panel"><div class="panel-heading"><div><h3>Perfil del día seleccionado</h3><p>Potencia media horaria; bombeo en eje negativo</p></div></div><div id="operation-day-chart" class="chart chart-tall"></div></article>
+      </div>
+      <div class="chart-grid">
+        <article class="panel"><div class="panel-heading"><div><h3>Horas por modo y día</h3><p>Detecta patrones, actividad y posibles periodos de espera</p></div></div><div id="operation-daily-chart" class="chart"></div></article>
+        <article class="panel table-panel"><div class="panel-heading"><div><h3>Bloques de potencia repetidos</h3><p>Tramos consecutivos; setpoint redondeado a 5 MW</p></div></div><div class="table-wrap"><table><thead><tr><th>Modo</th><th class="num">Setpoint</th><th class="num">Bloques</th><th class="num">Duración mediana</th><th class="num">P90</th><th class="num">Máximo</th></tr></thead><tbody id="operation-blocks"></tbody></table></div></article>
+      </div>
+      <article class="panel table-panel"><div class="panel-heading"><div><h3>Mercados y servicios anotados en el día</h3><p>Actividad publicada por la unidad de programación</p></div></div><div class="table-wrap"><table><thead><tr><th>Hora</th><th class="num">Turbinación MW</th><th class="num">Bombeo MW</th><th>Programa/servicios observados</th></tr></thead><tbody id="operation-events"></tbody></table></div></article>
     </section>
 
     <section id="mercados" class="tab-panel">

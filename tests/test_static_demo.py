@@ -10,7 +10,7 @@ DOCS = ROOT / "docs"
 def test_static_demo_has_required_assets():
     for relative in (
         "index.html", "styles.css", "app.js", ".nojekyll",
-        "vendor/plotly.min.js", "data/demo-data.json",
+        "vendor/plotly.min.js", "data/demo-data.json", "data/operation-data.json",
     ):
         path = DOCS / relative
         assert path.exists(), relative
@@ -69,3 +69,18 @@ def test_public_links_and_requested_metric_are_present():
     assert "antonio-rueda-caballero-21665323b" in html
     assert "antonioruedamagtel/ingresos-bombeos-dashboard" in html
     assert "EUR/MW-año" in html
+
+
+def test_operation_snapshot_covers_all_assets_and_exposes_hourly_programme():
+    payload = json.loads((DOCS / "data" / "operation-data.json").read_text(encoding="utf-8"))
+    assert payload["metadata"]["period_start"] == "2023-01-01"
+    assert payload["metadata"]["period_end"] == "2026-04-30"
+    assert len(payload["assets"]) == 8
+    assert len(payload["days"]) >= 1_200
+    assert payload["hourly"]
+    assert payload["daily"]
+    assert {row[0] for row in payload["daily"]} == set(range(8))
+    html = (DOCS / "index.html").read_text(encoding="utf-8")
+    javascript = (DOCS / "app.js").read_text(encoding="utf-8")
+    assert 'data-tab="operacion"' in html
+    assert "window.OPERATION_DATA" in javascript

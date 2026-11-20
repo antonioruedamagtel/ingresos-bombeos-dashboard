@@ -15,6 +15,13 @@ de 2026, además de un simulador de potencia, almacenamiento, eficiencias y
 costes que se ejecuta íntegramente en el navegador. No requiere token ni envía
 datos a un servidor.
 
+La pestaña **Operación** permite reconstruir, por central y a resolución
+horaria, el programa P48 de turbinación y bombeo, las horas sin programa y los
+bloques de potencia repetidos. También muestra las anotaciones de mercado y
+servicios publicadas para la unidad (diario/P48, restricciones, RR, mFRR y
+aFRR). Es una reconstrucción a partir de programación publicada: no es SCADA,
+ni convierte por sí sola una hora sin programa en una indisponibilidad.
+
 La demo es educativa: los históricos siguen la metodología del repositorio y
 los escenarios futuros son orientativos, no una oferta de mercado ni una
 previsión financiera garantizada.

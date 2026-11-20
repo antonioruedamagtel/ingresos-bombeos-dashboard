@@ -166,7 +166,7 @@ def split_daily_restrictions(i90: pd.DataFrame) -> dict[str, pd.DataFrame]:
     d = i90[i90["sheet"] == "I90DIA03"].copy()
     if d.empty:
         return {"RT_DIARIO": d, "REEQUILIBRIO": d}
-    is_eco = d["concept"].fillna("").str.contains(r"\beco\b", regex=True, na=False)
+    is_eco = d["concept"].fillna("").str.contains(r"\beco\b", case=False, regex=True, na=False)
     return {"REEQUILIBRIO": d[is_eco].copy(), "RT_DIARIO": d[~is_eco].copy()}
 
 
@@ -175,5 +175,10 @@ def split_real_time(i90: pd.DataFrame) -> dict[str, pd.DataFrame]:
     d = i90[i90["sheet"] == "I90DIA08"].copy()
     if d.empty:
         return {"RT_TIEMPO_REAL": d, "DESVIOS_RT": d}
-    is_rt = d["concept"].fillna("").str.contains("restricciones", na=False)
+    # En los formatos 2026 el tipo de redespacho deja de venir como texto y se
+    # identifica mediante UPLTROR/UPOTROR. Si no se reconocen se mandaría toda
+    # la hoja a desvíos (sin precio) y se perdería valor de restricciones.
+    is_rt = d["concept"].fillna("").str.contains(
+        r"restricciones|upltror|upotror", case=False, regex=True, na=False
+    )
     return {"RT_TIEMPO_REAL": d[is_rt].copy(), "DESVIOS_RT": d[~is_rt].copy()}

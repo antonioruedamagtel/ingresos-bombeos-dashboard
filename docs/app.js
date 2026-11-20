@@ -17,6 +17,8 @@ const MARKET_DESCRIPTIONS = {
 };
 
 let DATA;
+let OPERATION;
+const operationState = { asset: "", month: "", day: "" };
 const state = { asset: "ALL", start: "", end: "", metric: "EUR" };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -192,6 +194,108 @@ function renderEnergy() {
     { type: "bar", name: "Generación", x: months, y: months.map(month => gen.get(month) || 0), marker: { color: COLORS.teal }, hovertemplate: "%{x}<br>%{y:,.0f} MWh<extra>Generación</extra>" },
     { type: "bar", name: "Bombeo", x: months, y: months.map(month => -Math.abs(pump.get(month) || 0)), marker: { color: COLORS.purple }, hovertemplate: "%{x}<br>%{customdata:,.0f} MWh<extra>Bombeo</extra>", customdata: months.map(month => Math.abs(pump.get(month) || 0)) }
   ], { barmode: "relative", yaxis: { title: "MWh", tickformat: ",.2s" }, xaxis: { type: "category" } });
+}
+
+function operationRows() {
+  if (!OPERATION) return [];
+  const assetId = OPERATION.assets.indexOf(operationState.asset);
+  return OPERATION.hourly.filter(row => row[0] === assetId);
+}
+
+function labelsFromMask(mask) {
+  return Object.entries(OPERATION.markets)
+    .filter(([bit]) => (Number(mask) & Number(bit)) !== 0)
+    .map(([, label]) => label);
+}
+
+function operationHourRows() {
+  const dayId = OPERATION.days.indexOf(operationState.day);
+  const hourly = operationRows().filter(row => row[1] === dayId);
+  const byHour = new Map(hourly.map(row => [row[2], row]));
+  return Array.from({ length: 24 }, (_, hour) => {
+    const row = byHour.get(hour);
+    return { hour, generation: row ? Number(row[3]) : 0, pumping: row ? Number(row[4]) : 0, mask: row ? Number(row[5]) : 0 };
+  });
+}
+
+function renderOperation() {
+  if (!OPERATION || !$("#operation-asset")) return;
+  const assetId = OPERATION.assets.indexOf(operationState.asset);
+  const daysInMonth = OPERATION.days.filter(day => day.startsWith(operationState.month));
+  const daily = OPERATION.daily
+    .filter(row => row[0] === assetId && OPERATION.days[row[1]].startsWith(operationState.month))
+    .map(row => ({ day: OPERATION.days[row[1]], generationHours: Number(row[2]), pumpingHours: Number(row[3]), idleHours: row[4] == null ? null : Number(row[4]), mixedHours: Number(row[5]), generation: Number(row[6]), pumping: Number(row[7]), published: Boolean(row[10]) }))
+    .sort((a, b) => a.day.localeCompare(b.day));
+  const published = daily.filter(row => row.published);
+  const total = field => published.reduce((value, row) => value + (Number(row[field]) || 0), 0);
+  const activeDays = published.filter(row => row.generationHours > 0 || row.pumpingHours > 0).length;
+  const generationHours = total("generationHours"), pumpingHours = total("pumpingHours"), idleHours = total("idleHours");
+  const blocks = OPERATION.blocks.filter(row => row[0] === assetId).sort((a, b) => Number(b[8]) - Number(a[8]));
+  const dominant = blocks[0];
+  const monthHours = operationRows().filter(row => OPERATION.days[row[1]].startsWith(operationState.month));
+  const hourMean = (direction) => {
+    const candidates = monthHours.filter(row => Number(row[direction]) > .01);
+    if (!candidates.length) return "—";
+    const weighted = candidates.reduce((sum, row) => sum + Number(row[2]) * Number(row[direction]), 0);
+    return `${String(Math.round(weighted / candidates.reduce((sum, row) => sum + Number(row[direction]), 0))).padStart(2, "0")}:00`;
+  };
+  const observedDays = published.length;
+  $("#operation-kpis").innerHTML = [
+    kpiCard("Horas turbinando", `${formatNumber(generationHours, 1)} h`, `${formatNumber(total("generation"), 0)} MWh programados`, COLORS.teal, "↗"),
+    kpiCard("Horas bombeando", `${formatNumber(pumpingHours, 1)} h`, `${formatNumber(total("pumping"), 0)} MWh programados`, COLORS.purple, "↘"),
+    kpiCard("Sin programa P48", `${formatNumber(idleHours, 1)} h`, `${activeDays}/${observedDays} días con actividad`, COLORS.grey, "◌"),
+    kpiCard("Bloque dominante", dominant ? `${formatNumber(dominant[2], 0)} MW` : "—", dominant ? `${dominant[1]} · mediana ${formatNumber(dominant[5], 2)} h` : "Sin bloques activos", COLORS.orange, "▰")
+  ].join("");
+  const operatingSummary = dominant
+    ? `En ${formatMonth(operationState.month)}, ${operationState.asset} se programa principalmente en bloques de ${formatNumber(dominant[2], 0)} MW para ${dominant[1]}; la duración mediana de esos bloques es ${formatNumber(dominant[5], 2)} h y el P90 ${formatNumber(dominant[6], 2)} h. El centro de gravedad horario es aproximadamente ${hourMean(3)} al turbinar y ${hourMean(4)} al bombear. Esta es una señal de programa publicado, no una explicación causal de su despacho.`
+    : `No se observan bloques P48 activos para ${operationState.asset} en ${formatMonth(operationState.month)}.`;
+  $("#operation-logic").textContent = operatingSummary;
+
+  const heatDays = daysInMonth;
+  const heat = Array.from({ length: 24 }, () => Array(heatDays.length).fill(0));
+  const hourMap = new Map(monthHours.map(row => [`${OPERATION.days[row[1]]}|${row[2]}`, row]));
+  heatDays.forEach((day, col) => {
+    for (let hour = 0; hour < 24; hour += 1) {
+      const row = hourMap.get(`${day}|${hour}`); const g = row ? Number(row[3]) : 0; const p = row ? Number(row[4]) : 0;
+      heat[hour][col] = g > .01 && p > .01 ? 2 : g > .01 ? 1 : p > .01 ? -1 : 0;
+    }
+  });
+  plot("operation-heatmap", [{ type: "heatmap", x: heatDays.map(day => day.slice(8)), y: Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, "0")}:00`), z: heat, zmin: -1, zmax: 2, colorscale: [[0, COLORS.purple], [.32, COLORS.purple], [.33, "#edf1f4"], [.65, "#edf1f4"], [.66, COLORS.teal], [.88, COLORS.teal], [.89, COLORS.orange], [1, COLORS.orange]], showscale: false, hovertemplate: "Día %{x}, %{y}<br>%{z}<extra></extra>" }], { margin: { l: 50, r: 10, t: 15, b: 42 }, xaxis: { title: "Día del mes" }, yaxis: { autorange: "reversed", title: "Hora" }, annotations: [] });
+
+  const dayRows = operationHourRows();
+  plot("operation-day-chart", [
+    { type: "bar", name: "Turbinación", x: dayRows.map(row => row.hour), y: dayRows.map(row => row.generation), marker: { color: COLORS.teal }, hovertemplate: "%{x}:00<br>%{y:,.1f} MW<extra>Turbinación</extra>" },
+    { type: "bar", name: "Bombeo", x: dayRows.map(row => row.hour), y: dayRows.map(row => -row.pumping), customdata: dayRows.map(row => row.pumping), marker: { color: COLORS.purple }, hovertemplate: "%{x}:00<br>%{customdata:,.1f} MW<extra>Bombeo</extra>" }
+  ], { barmode: "relative", yaxis: { title: "MW medios", zeroline: true }, xaxis: { title: operationState.day, dtick: 1 }, legend: { orientation: "h", y: 1.13 } });
+  plot("operation-daily-chart", [
+    { type: "bar", name: "Turbinando", x: daily.map(row => row.day), y: daily.map(row => row.generationHours), marker: { color: COLORS.teal } },
+    { type: "bar", name: "Bombeando", x: daily.map(row => row.day), y: daily.map(row => row.pumpingHours), marker: { color: COLORS.purple } },
+    { type: "bar", name: "Sin programa", x: daily.map(row => row.day), y: daily.map(row => row.idleHours), marker: { color: "#dce3e8" } }
+  ], { barmode: "stack", yaxis: { title: "horas", range: [0, 24] }, xaxis: { type: "category", tickformat: "%d" }, legend: { orientation: "h", y: 1.13 } });
+  $("#operation-blocks").innerHTML = blocks.slice(0, 10).map(row => `<tr><td>${escapeHtml(row[1])}</td><td class="num">${formatNumber(row[2], 0)} MW</td><td class="num">${formatNumber(row[3])}</td><td class="num">${formatNumber(row[5], 2)} h</td><td class="num">${formatNumber(row[6], 2)} h</td><td class="num">${formatNumber(row[7], 2)} h</td></tr>`).join("");
+  $("#operation-events").innerHTML = dayRows.filter(row => row.generation > .01 || row.pumping > .01 || row.mask).map(row => `<tr><td>${String(row.hour).padStart(2, "0")}:00</td><td class="num">${formatNumber(row.generation, 1)}</td><td class="num">${formatNumber(row.pumping, 1)}</td><td>${escapeHtml(labelsFromMask(row.mask).join(" · ") || "—")}</td></tr>`).join("") || `<tr><td colspan="4">Sin programa ni anotaciones por UP en el día seleccionado.</td></tr>`;
+}
+
+function initOperation() {
+  OPERATION = window.OPERATION_DATA;
+  if (!OPERATION || !OPERATION.assets?.length) return;
+  operationState.asset = OPERATION.assets[0];
+  operationState.month = OPERATION.days.at(-1).slice(0, 7);
+  $("#operation-asset").innerHTML = OPERATION.assets.map(asset => `<option value="${escapeHtml(asset)}">${escapeHtml(asset)}</option>`).join("");
+  const months = [...new Set(OPERATION.days.map(day => day.slice(0, 7)))];
+  $("#operation-month").innerHTML = months.map(month => `<option value="${month}">${escapeHtml(formatMonth(month))}</option>`).join("");
+  $("#operation-month").value = operationState.month;
+  const setDays = () => {
+    const available = OPERATION.days.filter(day => day.startsWith(operationState.month));
+    operationState.day = available.at(-1);
+    $("#operation-day").innerHTML = available.map(day => `<option value="${day}">${escapeHtml(formatDate(day))}</option>`).join("");
+    $("#operation-day").value = operationState.day;
+  };
+  setDays();
+  $("#operation-asset").addEventListener("change", event => { operationState.asset = event.target.value; renderOperation(); });
+  $("#operation-month").addEventListener("change", event => { operationState.month = event.target.value; setDays(); renderOperation(); });
+  $("#operation-day").addEventListener("change", event => { operationState.day = event.target.value; renderOperation(); });
+  renderOperation();
 }
 
 function pricesInSelection() {
@@ -373,6 +477,7 @@ function initTabs() {
     $$(".tab").forEach(item => item.classList.toggle("is-active", item === button));
     $$(".tab-panel").forEach(panel => panel.classList.toggle("is-active", panel.id === button.dataset.tab));
     history.replaceState(null, "", `#${button.dataset.tab}`);
+    if (button.dataset.tab === "operacion") renderOperation();
     setTimeout(() => window.dispatchEvent(new Event("resize")), 20);
   }));
   const target = location.hash.slice(1);
@@ -401,7 +506,7 @@ async function init() {
     if ((quality.critical_failed_months || []).length) {
       $("#hero-quality").textContent = `SNAPSHOT · ${quality.critical_failed_months.length} MESES A REVISAR`;
     }
-    initFilters(); initTabs();
+    initFilters(); initTabs(); initOperation();
     $("#storage-mode").addEventListener("change", toggleStorageMode);
     $("#forecast-form").addEventListener("submit", calculateForecast);
     $("#download-csv").addEventListener("click", downloadCsv);

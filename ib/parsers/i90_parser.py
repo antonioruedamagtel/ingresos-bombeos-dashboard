@@ -65,35 +65,56 @@ def _is_number(x) -> bool:
 
 
 def _find_layout(cells: list[list]):
-    total_col = period_row = None
+    """Localiza metadatos y periodos sin depender de una columna ``Total``.
+
+    En 2026 REE publicó tres variantes: la histórica con ``Total``, una con el
+    separador ``Cuarto de Hora del dia`` y otra sin separador entre metadatos y
+    periodos. La frontera inequívoca en esta última es la primera etiqueta de
+    intervalo de la fila que contiene la rejilla temporal.
+    """
+    total_col = period_row = period_start = None
+    anchors = {"total", "total mw", "cuarto de hora del dia", "cuarto de hora del día"}
     for r, row in enumerate(cells):
         for c, v in enumerate(row):
-            if isinstance(v, str) and v.strip().lower() in {"total", "total mw"}:
-                total_col, period_row = c, r
+            if isinstance(v, str) and v.strip().lower() in anchors:
+                total_col, period_row, period_start = c, r, c + 1
                 break
-        if total_col is not None:
+        if period_start is not None:
             break
-    if total_col is None:
+
+    # Desde enero de 2026 algunas hojas no tienen separador. Se busca la
+    # primera columna que inicia una sucesión suficiente de periodos.
+    if period_start is None:
+        for r, row in enumerate(cells):
+            marks = [_is_interval_label(v) or _period_number(v) is not None for v in row]
+            if sum(marks) >= 20:
+                period_row = r
+                period_start = next(i for i, marked in enumerate(marks) if marked)
+                total_col = None
+                break
+    if period_start is None:
         return None
-    meta_row = None
-    for r in range(len(cells)):
-        v = cells[r][0] if cells[r] else None
-        if isinstance(v, str) and v.strip():
-            meta_row = r
-            break
+
+    meta_row = next((
+        r for r, row in enumerate(cells)
+        if any("unidad de programaci" in str(v).lower() for v in row)
+    ), None)
+    if meta_row is None:
+        meta_row = next((r for r, row in enumerate(cells)
+                         if row and isinstance(row[0], str) and row[0].strip()), None)
     if meta_row is None:
         return None
-    return meta_row, period_row, total_col
+    return meta_row, period_row, total_col, period_start
 
 
-def _long_from_matrix(cells_all, meta_row, period_row, total_col, n_cols,
+def _long_from_matrix(cells_all, meta_row, period_row, total_col, period_start, n_cols,
                       sheet, day, selected_ups) -> pd.DataFrame:
     meta_names = []
-    for c in range(total_col):
+    for c in range(period_start if total_col is None else total_col):
         v = cells_all[meta_row][c] if c < len(cells_all[meta_row]) else ""
         meta_names.append(str(v).strip())
     labels = [cells_all[period_row][c] if c < len(cells_all[period_row]) else ""
-              for c in range(total_col + 1, n_cols)]
+              for c in range(period_start, n_cols)]
 
     nums = [_period_number(x) for x in labels]
     if sum(1 for x in labels if _is_interval_label(x)) >= 20:
@@ -114,7 +135,8 @@ def _long_from_matrix(cells_all, meta_row, period_row, total_col, n_cols,
         row = cells_all[r]
         if not row:
             continue
-        meta = [row[c] if c < len(row) else "" for c in range(total_col)]
+        meta = [row[c] if c < len(row) else ""
+                for c in range(period_start if total_col is None else total_col)]
         if all((isinstance(m, str) and not m.strip()) or m in ("", None) for m in meta):
             continue
         up = str(meta[up_idx]).strip().upper() if up_idx is not None else ""
@@ -124,8 +146,8 @@ def _long_from_matrix(cells_all, meta_row, period_row, total_col, n_cols,
         concept_bits = [str(m).strip() for i, m in enumerate(meta)
                         if i != up_idx and str(m).strip() and not _is_number(m)]
         concept = "|".join(concept_bits).lower()
-        tot = row[total_col] if total_col < len(row) else np.nan
-        for j, c in enumerate(range(total_col + 1, n_cols)):
+        tot = row[total_col] if total_col is not None and total_col < len(row) else np.nan
+        for j, c in enumerate(range(period_start, n_cols)):
             p = nums[j]
             if not p:
                 continue
@@ -154,13 +176,13 @@ def parse_i90_xls(path: Path, day, sheets, selected_ups=None) -> pd.DataFrame:
         sh = book.sheet_by_name(name)
         if sh.nrows < 3:
             continue
-        head = [[sh.cell_value(r, c) for c in range(sh.ncols)] for r in range(min(sh.nrows, 8))]
+        head = [[sh.cell_value(r, c) for c in range(sh.ncols)] for r in range(min(sh.nrows, 16))]
         layout = _find_layout(head)
         if layout is None:
             continue
-        meta_row, period_row, total_col = layout
+        meta_row, period_row, total_col, period_start = layout
         cells_all = [[sh.cell_value(r, c) for c in range(sh.ncols)] for r in range(sh.nrows)]
-        df = _long_from_matrix(cells_all, meta_row, period_row, total_col, sh.ncols,
+        df = _long_from_matrix(cells_all, meta_row, period_row, total_col, period_start, sh.ncols,
                                name, day, selected_ups)
         if not df.empty:
             frames.append(df)
@@ -179,11 +201,11 @@ def parse_i90_xlsx(path: Path, day, sheets, selected_ups=None) -> pd.DataFrame:
             continue
         raw = book.parse(sheet_name=name, header=None)
         cells_all = raw.where(pd.notna(raw), "").values.tolist()
-        layout = _find_layout(cells_all[:8])
+        layout = _find_layout(cells_all[:16])
         if layout is None:
             continue
-        meta_row, period_row, total_col = layout
-        df = _long_from_matrix(cells_all, meta_row, period_row, total_col, raw.shape[1],
+        meta_row, period_row, total_col, period_start = layout
+        df = _long_from_matrix(cells_all, meta_row, period_row, total_col, period_start, raw.shape[1],
                                name, day, selected_ups)
         if not df.empty:
             frames.append(df)
@@ -216,9 +238,9 @@ def parse_i90_csv(path: Path, day, sheet_name, selected_ups=None) -> pd.DataFram
     layout = _find_layout(cells_all[:12])
     if layout is None:
         return pd.DataFrame(columns=LONG_COLUMNS)
-    meta_row, period_row, total_col = layout
+    meta_row, period_row, total_col, period_start = layout
     n_cols = max(len(r) for r in cells_all)
-    return _long_from_matrix(cells_all, meta_row, period_row, total_col, n_cols,
+    return _long_from_matrix(cells_all, meta_row, period_row, total_col, period_start, n_cols,
                              sheet_name, day, selected_ups)
 
 

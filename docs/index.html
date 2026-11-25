@@ -114,7 +114,13 @@
       <div class="operation-controls panel">
         <label>Central<select id="operation-asset"></select></label>
         <label>Mes<select id="operation-month"></select></label>
+        <label>Tipo de día<select id="operation-day-type"><option value="ALL">Todos los días</option><option value="WEEKDAY">Laborables</option><option value="WEEKEND">Fines de semana</option></select></label>
         <label>Día a inspeccionar<select id="operation-day"></select></label>
+      </div>
+      <div class="operation-presets" aria-label="Selección rápida de días">
+        <button id="operation-normal" class="secondary-button" type="button">Día normal</button>
+        <button id="operation-max-generation" class="secondary-button" type="button">Máxima turbinación</button>
+        <button id="operation-max-pumping" class="secondary-button" type="button">Máximo bombeo</button>
       </div>
       <div id="operation-kpis" class="kpi-grid"></div>
       <article class="panel operation-insight"><h3>Lectura de la lógica operativa</h3><p id="operation-logic"></p></article>
@@ -126,6 +132,7 @@
         <article class="panel"><div class="panel-heading"><div><h3>Horas por modo y día</h3><p>Detecta patrones, actividad y posibles periodos de espera</p></div></div><div id="operation-daily-chart" class="chart"></div></article>
         <article class="panel table-panel"><div class="panel-heading"><div><h3>Bloques de potencia repetidos</h3><p>Tramos consecutivos; setpoint redondeado a 5 MW</p></div></div><div class="table-wrap"><table><thead><tr><th>Modo</th><th class="num">Setpoint</th><th class="num">Bloques</th><th class="num">Duración mediana</th><th class="num">P90</th><th class="num">Máximo</th></tr></thead><tbody id="operation-blocks"></tbody></table></div></article>
       </div>
+      <article class="panel"><div class="panel-heading"><div><h3>Perfil medio: laborables frente a fin de semana</h3><p>Potencia P48 media por hora; bombeo en negativo</p></div></div><div id="operation-week-chart" class="chart"></div></article>
       <article class="panel table-panel"><div class="panel-heading"><div><h3>Mercados y servicios anotados en el día</h3><p>Actividad publicada por la unidad de programación</p></div></div><div class="table-wrap"><table><thead><tr><th>Hora</th><th class="num">Turbinación MW</th><th class="num">Bombeo MW</th><th>Programa/servicios observados</th></tr></thead><tbody id="operation-events"></tbody></table></div></article>
     </section>
 

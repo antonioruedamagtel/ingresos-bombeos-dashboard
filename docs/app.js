@@ -18,7 +18,7 @@ const MARKET_DESCRIPTIONS = {
 
 let DATA;
 let OPERATION;
-const operationState = { asset: "", month: "", day: "" };
+const operationState = { asset: "", month: "", day: "", dayType: "ALL" };
 const state = { asset: "ALL", start: "", end: "", metric: "EUR" };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -218,14 +218,59 @@ function operationHourRows() {
   });
 }
 
+function isWeekend(day) {
+  const weekday = new Date(`${day}T12:00:00`).getDay();
+  return weekday === 0 || weekday === 6;
+}
+
+function operationDailyRows() {
+  if (!OPERATION) return [];
+  const assetId = OPERATION.assets.indexOf(operationState.asset);
+  return OPERATION.daily
+    .filter(row => row[0] === assetId && OPERATION.days[row[1]].startsWith(operationState.month))
+    .map(row => ({ day: OPERATION.days[row[1]], generationHours: Number(row[2]), pumpingHours: Number(row[3]), idleHours: row[4] == null ? null : Number(row[4]), mixedHours: Number(row[5]), generation: Number(row[6]), pumping: Number(row[7]), published: Boolean(row[10]) }))
+    .sort((a, b) => a.day.localeCompare(b.day));
+}
+
+function eligibleOperationDays() {
+  return operationDailyRows().filter(row => {
+    if (operationState.dayType === "WEEKDAY") return !isWeekend(row.day);
+    if (operationState.dayType === "WEEKEND") return isWeekend(row.day);
+    return true;
+  });
+}
+
+function refreshOperationDays(preferredDay = "") {
+  const available = eligibleOperationDays();
+  const select = $("#operation-day");
+  if (!available.length) {
+    operationState.day = ""; select.innerHTML = `<option value="">Sin días disponibles</option>`; return;
+  }
+  const keep = preferredDay || operationState.day;
+  operationState.day = available.some(row => row.day === keep) ? keep : available.at(-1).day;
+  select.innerHTML = available.map(row => `<option value="${row.day}">${escapeHtml(formatDate(row.day))}${isWeekend(row.day) ? " · fin de semana" : " · laborable"}</option>`).join("");
+  select.value = operationState.day;
+}
+
+function selectOperationPreset(kind) {
+  const candidates = eligibleOperationDays().filter(row => row.published);
+  if (!candidates.length) return;
+  let chosen;
+  if (kind === "generation") chosen = candidates.reduce((best, row) => row.generation > best.generation ? row : best, candidates[0]);
+  else if (kind === "pumping") chosen = candidates.reduce((best, row) => row.pumping > best.pumping ? row : best, candidates[0]);
+  else {
+    const genMedian = [...candidates].map(row => row.generationHours).sort((a,b) => a-b)[Math.floor(candidates.length / 2)];
+    const pumpMedian = [...candidates].map(row => row.pumpingHours).sort((a,b) => a-b)[Math.floor(candidates.length / 2)];
+    chosen = candidates.reduce((best, row) => Math.abs(row.generationHours-genMedian)+Math.abs(row.pumpingHours-pumpMedian) < Math.abs(best.generationHours-genMedian)+Math.abs(best.pumpingHours-pumpMedian) ? row : best, candidates[0]);
+  }
+  operationState.day = chosen.day; refreshOperationDays(chosen.day); renderOperation();
+}
+
 function renderOperation() {
   if (!OPERATION || !$("#operation-asset")) return;
   const assetId = OPERATION.assets.indexOf(operationState.asset);
   const daysInMonth = OPERATION.days.filter(day => day.startsWith(operationState.month));
-  const daily = OPERATION.daily
-    .filter(row => row[0] === assetId && OPERATION.days[row[1]].startsWith(operationState.month))
-    .map(row => ({ day: OPERATION.days[row[1]], generationHours: Number(row[2]), pumpingHours: Number(row[3]), idleHours: row[4] == null ? null : Number(row[4]), mixedHours: Number(row[5]), generation: Number(row[6]), pumping: Number(row[7]), published: Boolean(row[10]) }))
-    .sort((a, b) => a.day.localeCompare(b.day));
+  const daily = operationDailyRows();
   const published = daily.filter(row => row.published);
   const total = field => published.reduce((value, row) => value + (Number(row[field]) || 0), 0);
   const activeDays = published.filter(row => row.generationHours > 0 || row.pumpingHours > 0).length;
@@ -272,6 +317,21 @@ function renderOperation() {
     { type: "bar", name: "Bombeando", x: daily.map(row => row.day), y: daily.map(row => row.pumpingHours), marker: { color: COLORS.purple } },
     { type: "bar", name: "Sin programa", x: daily.map(row => row.day), y: daily.map(row => row.idleHours), marker: { color: "#dce3e8" } }
   ], { barmode: "stack", yaxis: { title: "horas", range: [0, 24] }, xaxis: { type: "category", tickformat: "%d" }, legend: { orientation: "h", y: 1.13 } });
+  const periodHours = operationRows().filter(row => OPERATION.days[row[1]].startsWith(operationState.month));
+  const weekdayHour = Array.from({ length: 24 }, () => ({ g: [], p: [] }));
+  const weekendHour = Array.from({ length: 24 }, () => ({ g: [], p: [] }));
+  periodHours.forEach(row => {
+    const bucket = isWeekend(OPERATION.days[row[1]]) ? weekendHour : weekdayHour;
+    bucket[row[2]].g.push(Number(row[3]) || 0); bucket[row[2]].p.push(Number(row[4]) || 0);
+  });
+  const average = (values) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+  const hours = Array.from({ length: 24 }, (_, hour) => hour);
+  plot("operation-week-chart", [
+    { type: "scatter", mode: "lines", name: "Laborable · turbinación", x: hours, y: weekdayHour.map(row => average(row.g)), line: { color: COLORS.teal, width: 2 } },
+    { type: "scatter", mode: "lines", name: "Laborable · bombeo", x: hours, y: weekdayHour.map(row => { const value = average(row.p); return value == null ? null : -value; }), line: { color: COLORS.purple, width: 2 } },
+    { type: "scatter", mode: "lines", name: "Fin de semana · turbinación", x: hours, y: weekendHour.map(row => average(row.g)), line: { color: COLORS.teal, width: 2, dash: "dot" } },
+    { type: "scatter", mode: "lines", name: "Fin de semana · bombeo", x: hours, y: weekendHour.map(row => { const value = average(row.p); return value == null ? null : -value; }), line: { color: COLORS.purple, width: 2, dash: "dot" } }
+  ], { yaxis: { title: "MW P48 medios", zeroline: true }, xaxis: { title: "Hora", dtick: 2 }, legend: { orientation: "h", y: 1.18 } });
   $("#operation-blocks").innerHTML = blocks.slice(0, 10).map(row => `<tr><td>${escapeHtml(row[1])}</td><td class="num">${formatNumber(row[2], 0)} MW</td><td class="num">${formatNumber(row[3])}</td><td class="num">${formatNumber(row[5], 2)} h</td><td class="num">${formatNumber(row[6], 2)} h</td><td class="num">${formatNumber(row[7], 2)} h</td></tr>`).join("");
   $("#operation-events").innerHTML = dayRows.filter(row => row.generation > .01 || row.pumping > .01 || row.mask).map(row => `<tr><td>${String(row.hour).padStart(2, "0")}:00</td><td class="num">${formatNumber(row.generation, 1)}</td><td class="num">${formatNumber(row.pumping, 1)}</td><td>${escapeHtml(labelsFromMask(row.mask).join(" · ") || "—")}</td></tr>`).join("") || `<tr><td colspan="4">Sin programa ni anotaciones por UP en el día seleccionado.</td></tr>`;
 }
@@ -285,16 +345,14 @@ function initOperation() {
   const months = [...new Set(OPERATION.days.map(day => day.slice(0, 7)))];
   $("#operation-month").innerHTML = months.map(month => `<option value="${month}">${escapeHtml(formatMonth(month))}</option>`).join("");
   $("#operation-month").value = operationState.month;
-  const setDays = () => {
-    const available = OPERATION.days.filter(day => day.startsWith(operationState.month));
-    operationState.day = available.at(-1);
-    $("#operation-day").innerHTML = available.map(day => `<option value="${day}">${escapeHtml(formatDate(day))}</option>`).join("");
-    $("#operation-day").value = operationState.day;
-  };
-  setDays();
+  refreshOperationDays();
   $("#operation-asset").addEventListener("change", event => { operationState.asset = event.target.value; renderOperation(); });
-  $("#operation-month").addEventListener("change", event => { operationState.month = event.target.value; setDays(); renderOperation(); });
+  $("#operation-month").addEventListener("change", event => { operationState.month = event.target.value; refreshOperationDays(); renderOperation(); });
+  $("#operation-day-type").addEventListener("change", event => { operationState.dayType = event.target.value; refreshOperationDays(); renderOperation(); });
   $("#operation-day").addEventListener("change", event => { operationState.day = event.target.value; renderOperation(); });
+  $("#operation-normal").addEventListener("click", () => selectOperationPreset("normal"));
+  $("#operation-max-generation").addEventListener("click", () => selectOperationPreset("generation"));
+  $("#operation-max-pumping").addEventListener("click", () => selectOperationPreset("pumping"));
   renderOperation();
 }
 
